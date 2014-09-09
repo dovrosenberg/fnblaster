@@ -5,6 +5,6 @@ app.use(express.static('/app'));
 /*app.get('/', function(req,res) {
    res.send('hello world');
 });
+*/
 
-
-app.listen(process.env.PORT);*/
+app.listen(process.env.PORT);
