@@ -297,10 +297,14 @@ $("#gform").submit(function(event) {
 });
 
 $("#gclearmessages").click(function() {
+	blockers = getLocations(graph, 3);
+	targets = getLocations(graph, 4);
+	
+	drawTargets(graph,targets);
+	drawBlockers(graph,blockers);
+
 	$("#gmessages").val("");
 	$("#gcommand").focus();
-	drawBlocker(graph,1,1);
-	drawTarget(graph,3,4);
 });
 
 $("#gmessages").val("");

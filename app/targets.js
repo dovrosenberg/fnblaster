@@ -33,3 +33,25 @@ function drawCircle(graph, x, y, radius, filled) {
 function collisionDetect(x, y, circlex, circley, circleradius) {
 	return ((circlex-x)^2+(circley-y)^2<=circleradius^2);
 }
+
+function getLocations(graph,number) {
+	var list = [];
+	
+	var domain = graph.settings.maxX-graph.settings.minX;
+	var range = graph.settings.maxY-graph.settings.minY;
+	
+	for (i=0; i<number; i++) 
+		list[i] = [Math.floor(Math.random()*domain)+graph.settings.minX, Math.floor(Math.random()*range)+graph.settings.minY];	
+	return list;
+	
+}
+
+function drawTargets(graph,list) {
+	for (i=0; i<list.length; i++)
+		drawTarget(graph, list[i][0], list[i][1]);
+}
+
+function drawBlockers(graph,list) {
+	for (i=0; i<list.length; i++)
+		drawBlocker(graph, list[i][0], list[i][1]);
+}
