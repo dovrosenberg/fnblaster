@@ -259,7 +259,7 @@ function print() {
 }
 
 $("#gform").submit(function(event) {
-	var line = $("#gcommand").val();
+	var line = 'plot ' + $("#gcommand").val();
 	var error = false;
 
 	if (line) {
@@ -299,7 +299,8 @@ $("#gform").submit(function(event) {
 $("#gclearmessages").click(function() {
 	$("#gmessages").val("");
 	$("#gcommand").focus();
-	drawTarget(graph,1,1,1);
+	drawBlocker(graph,1,1);
+	drawTarget(graph,3,4);
 });
 
 $("#gmessages").val("");
