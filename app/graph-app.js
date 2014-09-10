@@ -58,6 +58,9 @@ var graph = new Graph(gcanvas);
 function redraw() {
 	clearContext(gcanvas.getContext("2d"));
 	var status = graph.redraw();
+	drawBlockers(graph,blockers);
+	drawTargets(graph,targets);
+	
 	position.update();
 	return status;
 }
@@ -259,14 +262,20 @@ function print() {
 }
 
 $("#gform").submit(function(event) {
-	var line = 'plot ' + $("#gcommand").val();
+	var line = $("#gcommand").val();
 	var error = false;
 
 	if (line) {
 		$("#gmessages").val("");
 
 		try {
-			var status = graph.processCommand(line);
+			// delete any prior plot
+			try {
+				graph.deletePlot(0);
+			}
+			catch (e) {};
+			
+			var status = graph.plot(line);
 			if (status != "") {
 				error = true;
 				print(status);
@@ -296,15 +305,11 @@ $("#gform").submit(function(event) {
 	return false;
 });
 
-$("#gclearmessages").click(function() {
+$("#gRunTest").click(function() {
 	blockers = getLocations(graph, 3);
 	targets = getLocations(graph, 4);
 	
-	drawTargets(graph,targets);
-	drawBlockers(graph,blockers);
-
-	$("#gmessages").val("");
-	$("#gcommand").focus();
+	redraw();		
 });
 
 $("#gmessages").val("");

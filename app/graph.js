@@ -384,6 +384,7 @@ Graph = (function() {
 				this.redrawCallback(ctx);
 			}
 
+			status = errors + '\n';
 			return errors;
 		},
 
@@ -402,87 +403,27 @@ Graph = (function() {
 			return this.evalFunction(f);
 		},
 
-		processCommand: function(line) {
+		deletePlot: function(n) {
+			if (!isNaN(n)) {
+				this.removeFunction(n);
+			}
+			else {
+				status = "Invalid delete";
+			}
+		},
+		
+		plot: function(line) {
 			line = line.trim();
 			if (line == "") return "";
-
-			var cmd = line.split(/\s/);
-			var command = cmd.shift();
-			var args = (cmd.join(" ") || "").trim();
 			var status = "";
 
-			switch (command) {
-			case "delete":
-				var n = parseInt(args);
-				if (!isNaN(n)) {
-					this.removeFunction(n);
-				}
-				else {
-					status = "Invalid delete";
-				}
-				break;
-			case "let":
-				var expr = args.split(/=/);
-				if (expr.length == 2) {
-					var varName = expr[0].trim();
-					if (/^[a-zA-Z][a-zA-Z]*$/.test(varName) && varName != "x" && varName != "y" && varName != "t") {
-						try {
-							try {
-								var f = this.makeFunction(expr[1]);
-								try {
-									var n = f.evaluate(this.constants);
-									this.constants[varName] = n;
-								}
-								catch (e) { status = e.message; }
-							}
-							catch (e) { status = "Sytax error"; }
-						}
-						catch (e) { status = "Invalid value in assignment"; }
-					}
-					else { status = "Invalid constant"; }
-				}
-				else {
-					status = "Invalid assignment";
-				}
-				break;
-			case "clear":
-				var varName = args;
-				if (/^[a-zA-Z][a-zA-Z]*$/.test(varName) && varName != "x" && varName != "y" && varName != "t") {
-					delete this.constants[varName];
-				}
-				else {
-					status = "Invalid constant";
-				}
-				break;
-			case "plot":
-				try {
-					var f = this.makeFunction(args);
-					this.addFunction(f);
-				}
-				catch (e) {
-					status = e.message;
-				}
-				break;
-			case "redraw":
-				status = this.redraw().join("\n");
-				break;
-			default:
-				if (this.commandCallback) {
-					var info = {status: "", fullCommand: line};
-					if (this.commandCallback(command, args, info)) {
-						status = info.status;
-					}
-					else {
-						status = "Unrecognized command";
-					}
-				}
-				else {
-					status = "Unrecognized command";
-				}
-				break;
+			try {
+				var f = this.makeFunction(line);
+				this.addFunction(f);
 			}
-
-			return status;
+			catch (e) {
+				status = e.message;
+			}
 		},
 
 		makeFunction: function(expr) {
@@ -538,7 +479,70 @@ Graph = (function() {
 				}
 			}
 		}
-	};
+			
+		// some old code to handle variable assignment; not needed
+		/*,processCommand: function(line) {
+			line = line.trim();
+			if (line == "") return "";
+
+			var cmd = line.split(/\s/);
+			var command = cmd.shift();
+			var args = (cmd.join(" ") || "").trim();
+			var status = "";
+
+			switch (command) {			
+			case "let":
+				var expr = args.split(/=/);
+				if (expr.length == 2) {
+					var varName = expr[0].trim();
+					if (/^[a-zA-Z][a-zA-Z]*$/.test(varName) && varName != "x" && varName != "y" && varName != "t") {
+						try {
+							try {
+								var f = this.makeFunction(expr[1]);
+								try {
+									var n = f.evaluate(this.constants);
+									this.constants[varName] = n;
+								}
+								catch (e) { status = e.message; }
+							}
+							catch (e) { status = "Sytax error"; }
+						}
+						catch (e) { status = "Invalid value in assignment"; }
+					}
+					else { status = "Invalid constant"; }
+				}
+				else {
+					status = "Invalid assignment";
+				}
+				break;
+			case "clear":
+				var varName = args;
+				if (/^[a-zA-Z][a-zA-Z]*$/.test(varName) && varName != "x" && varName != "y" && varName != "t") {
+					delete this.constants[varName];
+				}
+				else {
+					status = "Invalid constant";
+				}
+				break;
+			default:
+				if (this.commandCallback) {
+					var info = {status: "", fullCommand: line};
+					if (this.commandCallback(command, args, info)) {
+						status = info.status;
+					}
+					else {
+						status = "Unrecognized command";
+					}
+				}
+				else {
+					status = "Unrecognized command";
+				}
+				break;
+			}
+
+			return status;
+		}*/
+};
 
 	return Graph;
 })();
