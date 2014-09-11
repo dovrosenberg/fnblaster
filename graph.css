@@ -1,0 +1,43 @@
+#gcanvas {
+	border: 1px solid black;
+	background-color: white;
+}
+
+#gtable {
+	border: none;
+}
+
+#gtable, #gtable tbody, #gtable tr, #gcell {
+	margin: 0;
+	padding: 0;
+}
+
+#gtable td {
+	border: none;
+	vertical-align: top;
+}
+
+#gform {
+	margin-top: 0;
+}
+
+#gformcell {
+	padding-left: 1em;
+}
+
+#commands dt {
+	margin-top: 1em;
+}
+
+#commands th {
+	text-align: left;
+	padding-right: 0.5em;
+}
+
+#commands table.options {
+	border-top: 1px solid;
+}
+
+#commands table.options td, #commands table.options th {
+	border-bottom: 1px solid;
+}
