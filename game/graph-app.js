@@ -54,12 +54,13 @@ function clearContext(c) {
 };
 
 var graph = new Graph(gcanvas);
+var game = new Game(graph);
 
 function redraw() {
 	clearContext(gcanvas.getContext("2d"));
 	var status = graph.redraw();
-	drawBlockers(graph,blockers);
-	drawTargets(graph,targets);
+	game.drawBlockers();
+	game.drawTargets();
 	
 	position.update();
 	return status;
@@ -306,9 +307,6 @@ $("#gform").submit(function(event) {
 });
 
 $("#gRunTest").click(function() {
-	blockers = getLocations(graph, 3);
-	targets = getLocations(graph, 4);
-	
 	redraw();		
 });
 

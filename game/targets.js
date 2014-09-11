@@ -46,12 +46,3 @@ function getLocations(graph,number) {
 	
 }
 
-function drawTargets(graph,list) {
-	for (i=0; i<list.length; i++)
-		drawTarget(graph, list[i][0], list[i][1]);
-}
-
-function drawBlockers(graph,list) {
-	for (i=0; i<list.length; i++)
-		drawBlocker(graph, list[i][0], list[i][1]);
-}
