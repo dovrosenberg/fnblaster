@@ -45,22 +45,13 @@ Overlay.prototype = {
 
 $(function() {
 
-var $gcanvas = $("#gcanvas");
-var gcanvas = $gcanvas.get(0);
-var position = new Overlay(gcanvas, 0, 0, 300, 20);
-
 function clearContext(c) {
 	c.canvas.width = c.canvas.width;
 };
 
-var graph = new Graph(gcanvas);
-var game = new Game(graph);
-
 function redraw() {
 	clearContext(gcanvas.getContext("2d"));
 	var status = graph.redraw();
-	game.drawBlockers();
-	game.drawTargets();
 	
 	position.update();
 	return status;
@@ -105,148 +96,23 @@ function onoff(s) {
 	return s == "on" || s == "1" || s == "true";
 }
 
+var $gcanvas = $("#gcanvas");
+var gcanvas = $gcanvas.get(0);
+var position = new Overlay(gcanvas, 0, 0, 300, 20);
+
+// create the graph
+var graph = new Graph(gcanvas);
+
+// create the game object
+var game = new Game(graph);
+game.startGame();
+
+// draw the initial setup
+game.drawTargets();
+game.drawBlockers();
+
+
 // Setup the graph
-graph.commandCallback = function(command, args, info) {
-	info.status = "";
-
-	switch (command) {
-	case "set":
-		var settings = graph.settings;
-		args = args.split(/\s+/);
-		if (args.length >= 2) {
-			var option = args[0].trim();
-			var value = args.slice(1).join(" ").trim();
-
-			switch (option) {
-			case "axes":
-			case "axis":
-				settings.showAxes = onoff(value);
-				break;
-			case "grid":
-				settings.showGrid = onoff(value);
-				break;
-			case "xgridsize":
-			case "xgrid":
-				var n = graph.evalExpression(value);
-				if (isNaN(n)) info.status = "Invalid xgridsize";
-				else settings.xGridSize = n;
-				break;
-			case "ygridsize":
-			case "ygrid":
-				var n = graph.evalExpression(value);
-				if (isNaN(n)) info.status = "Invalid ygridsize";
-				else settings.yGridSize = n;
-				break;
-			case "gridsize":
-				var n = graph.evalExpression(value);
-				if (isNaN(n)) info.status = "Invalid gridsize";
-				else settings.yGridSize = settings.xGridSize = n;
-				break;
-			case "tmin":
-				var n = graph.evalExpression(value);
-				if (isNaN(n)) info.status = "Invalid tmin";
-				else settings.minT = n;
-				break;
-			case "tmax":
-				var n = graph.evalExpression(value);
-				if (isNaN(n)) info.status = "Invalid tmin";
-				else settings.maxT = n;
-				break;
-			case "pmin":
-				var n = graph.evalExpression(value);
-				if (isNaN(n)) info.status = "Invalid pmin";
-				else settings.minParam = n;
-				break;
-			case "pmax":
-				var n = graph.evalExpression(value);
-				if (isNaN(n)) info.status = "Invalid pmin";
-				else settings.maxParam = n;
-				break;
-			default:
-				info.status = "Unrecognized option";
-				break;
-			}
-		}
-		else {
-			info.status = "Invalid option";
-		}
-		break;
-	case "view":
-		var settings = graph.settings;
-		if (args == "") {
-			settings.minX = settings.minY = -10;
-			settings.maxX = settings.maxY = 10;
-		}
-		else {
-			args = args.split(/\s+/);
-			switch (args.length) {
-			default:
-			case 4: settings.maxY = getNumber(args[3], settings.maxY);
-			case 3: settings.minY = getNumber(args[2], settings.minY);
-			case 2: settings.maxX = getNumber(args[1], settings.maxX);
-			case 1: settings.minX = getNumber(args[0], settings.minX);
-			}
-		}
-		// Fallthrough
-	case "redraw":
-		info.status = redraw();
-		break;
-	default:
-		return false;
-	}
-
-	return true;
-};
-
-function onmousewheel(event) {
-	var delta = 0;
-	if (!event) event = window.event;
-
-	// normalize the delta
-	if (event.wheelDelta) { // IE & Opera
-		delta = -event.wheelDelta;
-	}
-	else if (event.detail) { // W3C
-		delta = event.detail;
-	}
-	else {
-		event.preventDefault();
-		return;
-	}
-
-	// FIXME: I don't think this is correct in IE
-	var gtable = $("#gtable").get(0);
-	var x = event.pageX - gtable.offsetLeft;
-	var y = event.pageY - gtable.offsetTop;
-	var p = graph.getPoint(x, y);
-
-	var scale = 1.2;
-	if (delta < 0) scale = 1 / scale;
-	graph.zoom(scale, scale, p.x, p.y);
-	redraw();
-
-	event.preventDefault();
-	return false;
-}
-
-if (window.addEventListener) {
-	gcanvas.addEventListener('DOMMouseScroll', onmousewheel, false);
-}
-//for IE/Opera etc
-gcanvas.onmousewheel = onmousewheel;
-
-$gcanvas.dblclick(function(e) {
-	var gtable = $("#gtable").get(0);
-	var x = e.pageX - gtable.offsetLeft;
-	var y = e.pageY - gtable.offsetTop;
-	var p = graph.getPoint(x, y);
-
-	graph.setCenter(p.x, p.y);
-	redraw();
-	$("#gcommand").focus();
-	return false;
-});
-
 $gcanvas.mousemove(function(e) {
 	var gtable = $("#gtable").get(0);
 	var x = e.pageX - gtable.offsetLeft;

@@ -277,26 +277,44 @@ Graph = (function() {
 							ctx.lineTo(x, y);
 						}
 					}
-					else {
-						if (y > maxY || y < minY || x > maxX || x < minX) {
-							first = true;
-						}
-					}
 				}
 
-				ctx.strokeStyle = color || "black";
 				ctx.beginPath();
+				ctx.strokeStyle = color || "black";
 
-				if (param == "x") {
-					for (var x = minX; x <= maxX; (x < 0 && x + xstep > 0) ? x = 0 : x += xstep) {
-						var y = f(x);
-						plotPoint(x, y);
-					}
-					if (x - xstep < maxX) {
-						var y = f(maxX);
-						plotPoint(maxX, y);
-					}
-				}
+				// old code just looped across the whole range for x; new code has to do it according to time
+				//    in order to ensure the correct speed
+				var requestAnimationFrame = window.requestAnimationFrame || window.webkitRequestAnimationFrame || window.mozRequestAnimationFrame ||
+						window.oRequestAnimationFrame || window.msRequestAnimationFrame;
+				
+				var linearSpeed = (maxX - minX)/5;  // want it to take 5 seconds to draw entire range
+				var startTime = null;
+				
+				// startTime is original time we started to draw (in milliseconds)
+				// linearSpeed is how far x advances (in graph units) per second
+				var animate = function(timestamp) {
+					// get new time
+					if (startTime === null) startTime = timestamp;
+					var time = timestamp - startTime;
+					
+					// get current location
+					var newX = minX + (linearSpeed * time/1000);
+					if (newX <= maxX) {
+						var y = f(newX);
+						plotPoint(newX,y);
+						ctx.stroke();
+						
+						// request new frame
+						requestAnimationFrame(animate);
+					} else
+						ctx.restore();
+				};
+				
+				first = true;
+				requestAnimationFrame(animate);
+				
+				// could handle other functional forms; for now, don't allow
+				/*
 				else if (param == "y") {
 					for (var y = minY; y <= maxY; (y < 0 && y + ystep > 0) ? y = 0 : y += ystep) {
 						var x = f(y);
@@ -342,12 +360,11 @@ Graph = (function() {
 						var y = xy[1];
 						plotPoint(x, y);
 					}
-				}
 
 				ctx.stroke();
+				}*/
 			}
-			finally {
-				ctx.restore();
+			finally {				
 			}
 		},
 
