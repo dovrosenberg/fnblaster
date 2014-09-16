@@ -49,9 +49,9 @@ function clearContext(c) {
 	c.canvas.width = c.canvas.width;
 };
 
-function redraw() {
+function redraw(clean) {
 	clearContext(gcanvas.getContext("2d"));
-	var status = graph.redraw();
+	var status = graph.redraw(clean);
 	
 	position.update();
 	return status;
@@ -112,7 +112,7 @@ game.drawTargets();
 game.drawBlockers();
 
 
-// Setup the graph
+// hookup the location sensors
 $gcanvas.mousemove(function(e) {
 	var gtable = $("#gtable").get(0);
 	var x = e.pageX - gtable.offsetLeft;
@@ -148,7 +148,7 @@ $("#gform").submit(function(event) {
 				print(status);
 			}
 
-			status = redraw();
+			status = redraw(false);
 			if (status != "") {
 				error = true;
 				print(status);
@@ -172,12 +172,10 @@ $("#gform").submit(function(event) {
 	return false;
 });
 
-$("#gRunTest").click(function() {
-	redraw();		
-});
-
 $("#gmessages").val("");
-redraw();
+
+// trigger the first draw
+redraw(true);
 
 });
 

@@ -380,11 +380,15 @@ Graph = (function() {
 			this.functions.splice(index, 1);
 		},
 
-		redraw: function() {
+		// draws a clean grid (if clean=true) and then plots all the functions on top of it
+		redraw: function(clean) {
 			var ctx = this.canvas.getContext("2d");
-			ctx.clearRect(this.offsetX, this.offsetY, this.width, this.height);
-			drawGrid(this);
-
+			
+			if (clean) {
+				ctx.clearRect(this.offsetX, this.offsetY, this.width, this.height);
+				drawGrid(this);
+			};
+			
 			var functions = this.functions;
 			var errors = [];
 			for (var i = 0; i < functions.length; i++) {
@@ -496,69 +500,6 @@ Graph = (function() {
 				}
 			}
 		}
-			
-		// some old code to handle variable assignment; not needed
-		/*,processCommand: function(line) {
-			line = line.trim();
-			if (line == "") return "";
-
-			var cmd = line.split(/\s/);
-			var command = cmd.shift();
-			var args = (cmd.join(" ") || "").trim();
-			var status = "";
-
-			switch (command) {			
-			case "let":
-				var expr = args.split(/=/);
-				if (expr.length == 2) {
-					var varName = expr[0].trim();
-					if (/^[a-zA-Z][a-zA-Z]*$/.test(varName) && varName != "x" && varName != "y" && varName != "t") {
-						try {
-							try {
-								var f = this.makeFunction(expr[1]);
-								try {
-									var n = f.evaluate(this.constants);
-									this.constants[varName] = n;
-								}
-								catch (e) { status = e.message; }
-							}
-							catch (e) { status = "Sytax error"; }
-						}
-						catch (e) { status = "Invalid value in assignment"; }
-					}
-					else { status = "Invalid constant"; }
-				}
-				else {
-					status = "Invalid assignment";
-				}
-				break;
-			case "clear":
-				var varName = args;
-				if (/^[a-zA-Z][a-zA-Z]*$/.test(varName) && varName != "x" && varName != "y" && varName != "t") {
-					delete this.constants[varName];
-				}
-				else {
-					status = "Invalid constant";
-				}
-				break;
-			default:
-				if (this.commandCallback) {
-					var info = {status: "", fullCommand: line};
-					if (this.commandCallback(command, args, info)) {
-						status = info.status;
-					}
-					else {
-						status = "Unrecognized command";
-					}
-				}
-				else {
-					status = "Unrecognized command";
-				}
-				break;
-			}
-
-			return status;
-		}*/
 };
 
 	return Graph;
