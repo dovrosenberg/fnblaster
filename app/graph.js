@@ -1,27 +1,143 @@
-var Graph = function Graph(_canvas, _width, _height, _offsetX, _offsetY, _settings) {
+var Graph = function Graph(canvas, width, height, offsetX, offsetY, settings) {
 	// private variables
-	var blockers = [];
-	var targets = [];
-	var canvas = _canvas;
-	var offsetX = _offsetX || 0;
-	var offsetY = _offsetY || 0;
-	var width = _width || (canvas.width - offsetX);
-	var height = _height || (canvas.height - offsetY);
-	var scaleX, scaleY;
-	var functions = [];
-	var constants = {};
-	var redrawCallback = null
+	this._blockers = [];
+	this._targets = [];
+	this._canvas = canvas;
+	this._offsetX = offsetX || 0;
+	this._offsetY = offsetY || 0;
+	this._width = width || (this._canvas.width - this._offsetX);
+	this._height = height || (this._canvas.height - this._offsetY);
+	this._functions = [];
+	this._constants = {};
+	this._redrawCallback = null;
 	
 	// public properties
-	this.settings = extend(object(Graph.defaultSettings), _settings || {});
+	this.settings = extend(object(Graph.defaultSettings), settings || {});
 
+	// initialization
+	// TODO: make sure that blockers+targets<=range*domain
+	_blockers = this._getLocations(this.settings.numBlockers);
+	_targets = this._getLocations(this.settings.numTargets);
+};
+
+function PairExpression(expr0, expr1) {
+	this.expr0 = expr0;
+	this.expr1 = expr1;
+	this.param = expr0.param || expr1.param;
+	this.to = expr0.to || expr1.to;
+}
+PairExpression.prototype = {
+	simplify: function(vars) {
+		var spe = PairExpression(this.expr0.simplify(vars), this.expr1.simplify(vars));
+		spe.param = this.expr0.param;
+		spe.to = this.expr0.to;
+	},
+	evaluate: function(vars) {
+		return [this.expr0.evaluate(vars), this.expr1.evaluate(vars)];
+	},
+	toString: function() {
+		return this.expr0 + "; " + this.expr1;
+	},
+	substitute: function(variable, expr) {
+		var spe = PairExpression(this.expr0.substitute(variable, expr), this.expr1.substitute(variable, expr));
+		spe.param = this.expr0.param;
+		spe.to = this.expr0.to;
+	},
+	toJSFunction: function(param, variables) {
+		var xf = this.expr0.toJSFunction(param, variables);
+		var yf = this.expr1.toJSFunction(param, variables);
+		return function(t) {
+			return [xf(t), yf(t)];
+		};
+	},
+}
+
+// static properties and functions
+Graph.parser = new Parser();
+Graph.defaultSettings = {
+	showAxes: true,
+	showGrid: true,
+	xGridSize: 1,
+	yGridSize: 1,
+	minX: -10,
+	maxX: 10,
+	minY: -10,
+	maxY: 10,
+	minT: 0,
+	maxT: 2 * Math.PI,
+	minParam: 0,
+	maxParam: 2 * Math.PI,
+	colors: [ "red", "blue", "green", "orange", "purple", "gray", "pink", "lightblue", "limegreen"],
+};
+
+Graph.round = function(x) {
+	return Math.round(x * 4096) / 4096;
+};
+
+Graph.makeFunction = function(expr) {
+	expr = expr.trim();
+
+	try {
+		var param = "x";
+		var range = "y";
+		if (/^f\(x\)\s*=.*$/.test(expr) || /^y\s*=.*$/.test(expr)) {
+			expr = expr.substring(expr.indexOf("=") + 1).trim();
+		}
+		else if (/^f\(y\)\s*=.*$/.test(expr) || /^x\s*=.*$/.test(expr)) {
+			expr = expr.substring(expr.indexOf("=") + 1).trim();
+			param = "y";
+			range = "x";
+		}
+		else if (/^r\s*=.*$/.test(expr)) {
+			expr = expr.substring(expr.indexOf("=") + 1).trim();
+			param = "t";
+			range = "r";
+		}
+		else if (/^x\s*,\s*y\s*=.*$/.test(expr) || /^\[.+,.+\]$/.test(expr)) {
+			expr = expr.substring(expr.indexOf("=") + 1).trim();
+			param = "t";
+			range = "xy";
+		}
+		else if (expr.indexOf(";") != -1) {
+			var exprs = expr.split(";");
+			var expr0 = Graph.parser.parse(exprs[0]).simplify();
+			var expr1 = Graph.parser.parse(exprs[1]).simplify();
+			var f = new PairExpression(expr0, expr1);
+			f.param = "t";
+			f.to = "xy";
+			return f;
+		}
+
+		var f = Graph.parser.parse(expr).simplify();
+		f.param = param;
+		f.to = range;
+		return f;
+	}
+	catch (e) {
+		throw new Error("Syntax error");
+	}
+};
+
+Graph.prototype = {
 	// private methods
+	_getLocations: function(number) {
+		var list = [];
+		
+		var domain = this.settings.maxX-this.settings.minX;
+		var range = this.settings.maxY-this.settings.minY;
+		
+		// TODO: make this recalculate duplicates
+		for (i=0; i<number; i++) 
+			list[i] = [Math.floor(Math.random()*domain)+this.settings.minX, Math.floor(Math.random()*range)+this.settings.minY];	
+		return list;	
+	},
+
 	// location is an array of [x,y]
-	function drawCircle(location, radius, filled) = {
-		var ctx = canvas.getContext("2d");  // TODO: can I replace this whole setup with getContext???
+	_drawCircle: function(location, radius, filled) {
+		var ctx = this._canvas.getContext("2d");  // TODO: can I replace this whole setup with getContext???
 		ctx.save();
 		
-		ctx.scale(scaleX, -scaleY);
+		ctx.scale(this.scaleX, -this.scaleY);
 		ctx.translate(-this.settings.minX,this.settings.minY);
 		ctx.beginPath();
 		ctx.arc(location[0],location[1],radius,0,2*Math.PI, false);
@@ -37,69 +153,41 @@ var Graph = function Graph(_canvas, _width, _height, _offsetX, _offsetY, _settin
 		ctx.restore();
 	},
 
-	function drawTargets() = {
-		for (i=0; i<targets.length; i++)
-			drawCircle(targets[i], 0.5, true);
-	};
+	_drawTargets: function() {
+		for (i=0; i<this._targets.length; i++)
+			this._drawCircle(this._targets[i], 0.5, true);
+	},
 
-	function drawBlockers() = {
-		for (i=0; i<blockers.length; i++)
-			drawCircle(targets[i], 0.5, false);
-	};
+	_drawBlockers: function() {
+		for (i=0; i<this._blockers.length; i++)
+			this._drawCircle(this._blockers[i], 0.5, false);
+	},
 
-	function addFunction(f, c) = {
+	_addFunction: function(f, c) {
 		var colors = this.settings.colors;
-		functions.push({
+		this._functions.push({
 			fn: f,
-			color: c || colors[functions.length % colors.length]
+			color: c || colors[this._functions.length % colors.length]
 		});
-	};
+	},
 
-	function removeFunction(index) = {
-		functions.splice(index, 1);
-	};
+	_removeFunction: function(index) {
+		this._functions.splice(index, 1);
+	},
 
-	// draws a clean grid (if clean=true) and then plots all the functions on top of it
-	function redraw(clean) = {
-		var ctx = canvas.getContext("2d");
-		
-		if (clean) {
-			ctx.clearRect(offsetX, offsetY, width, height);
-			this.drawGrid();
-		};
-		
-		var errors = [];
-		for (var i = 0; i < functions.length; i++) {
-			var f = functions[i];
-			try {
-				plotFunction(f.fn, f.color);
-			}
-			catch (e) {
-				errors.push("Error in function " + i + ": " + e.message);
-			}
-		}
-
-		if (redrawCallback) {
-			redrawCallback(ctx);
-		}
-
-		status = errors + '\n';
-		return errors;
-	};
-
-	function plotFunction(f, color) {
-		var ctx = this.setupContext();
+	_plotFunction: function(f, color) {
+		var ctx = this._setupContext();
 
 		try {
 			var minX = this.settings.minX;
 			var minY = this.settings.minY;
 			var maxX = this.settings.maxX;
 			var maxY = this.settings.maxY;
-			var xstep = 1 / scaleX;
-			var ystep = 1 / scaleY;
+			var xstep = 1 / this.scaleX;
+			var ystep = 1 / this.scaleY;
 
-			var txstep = round(xstep);
-			var tystep = round(ystep);
+			var txstep = Graph.round(xstep);
+			var tystep = Graph.round(ystep);
 			if (txstep) xstep = txstep;
 			if (txstep) ystep = tystep;
 			var first = true;
@@ -107,7 +195,7 @@ var Graph = function Graph(_canvas, _width, _height, _offsetX, _offsetY, _settin
 			var param = f.param || "x";
 			var to = f.to || "y";
 
-			f = f.toJSFunction(param, constants);
+			f = f.toJSFunction(param, this._constants);
 			f.param = param;
 			f.to = to;
 
@@ -210,56 +298,108 @@ var Graph = function Graph(_canvas, _width, _height, _offsetX, _offsetY, _settin
 		}
 		finally {				
 		}
-	};
+	},
 
-	function evalFunction(f) = {
-		return f.evaluate(constants);
-	};
+	_evalFunction: function(f) {
+		return f.evaluate(this._constants);
+	},
 
-	function evalExpression(expr) = {
+	_evalExpression: function(expr) {
 		try {
-			var f = makeFunction(expr);
+			var f = Graph.makeFunction(expr);
 		}
 		catch (e) {
 			throw new Error("Syntax error");
 		}
 
-		return evalFunction(f);
-	};
+		return this._evalFunction(f);
+	},
 
-	// privileged methods
-	this.setupContext = function() {
-		var ctx = canvas.getContext("2d");
+	_setupContext: function() {
+		var ctx = this._canvas.getContext("2d");
 		ctx.save();
 
 		ctx.beginPath();
-			ctx.moveTo(offsetX                  , offsetY);
-			ctx.lineTo(offsetX + width + 1, offsetY);
-			ctx.lineTo(offsetX + width + 1, offsetY + height + 1);
-			ctx.lineTo(offsetX                  , offsetY + height + 1);
-			ctx.lineTo(offsetX                  , offsetY);
+			ctx.moveTo(this._offsetX                  , this._offsetY);
+			ctx.lineTo(this._offsetX + this._width + 1, this._offsetY);
+			ctx.lineTo(this._offsetX + this._width + 1, this._offsetY + this._height + 1);
+			ctx.lineTo(this._offsetX                  , this._offsetY + this._height + 1);
+			ctx.lineTo(this._offsetX                  , this._offsetY);
 		//ctx.stroke();
 		ctx.clip();
 
 		ctx.translate(
-			offsetX - this.settings.minX * scalex,
-			height + offsetY + this.settings.minY * scaley
+			this._offsetX - this.settings.minX * this.scaleX,
+			this._height + this._offsetY + this.settings.minY * this.scaleY
 		);
-		ctx.scale(scalex, -scaley);
+		ctx.scale(this.scaleX, -this.scaleY);
 
-		ctx.lineWidth = 1 / scalex;
+		ctx.lineWidth = 1 / this.scaleX;
 
 		return ctx;
-	};
+	},
 
-	this.drawGrid = function() {
-		var ctx = this.setupContext();
+
+	// public methods
+	get scaleX() {
+		var userWidth = this.settings.maxX - this.settings.minX;
+		return this._width / userWidth;
+	},
+
+	get scaleY() {
+		var userHeight = this.settings.maxY - this.settings.minY;
+		return this._height / userHeight;
+	},
+
+	getPoint: function(devx, devy) {
+		var settings = this.settings;
+		var scalex = this.scaleX;
+		var scaley = this.scaleY;
+		var offsetX = this._offsetX;
+		var offsetY = this._offsetY;
+
+		var x = (devx /  scalex) - ((              offsetX - settings.minX * scalex) / scalex);
+		var y = (devy / -scaley) + ((this.height + offsetY + settings.minY * scaley) / scaley);
+
+		return { x:x, y:y };
+	},
+		
+	// draws a clean grid (if clean=true) and then plots all the functions on top of it
+	redraw: function(clean) {
+		var ctx = this._canvas.getContext("2d");
+		
+		if (clean) {
+			ctx.clearRect(this._offsetX, this._offsetY, this._width, this._height);
+			this.drawGrid();
+		};
+		
+		var errors = [];
+		for (var i = 0; i < this._functions.length; i++) {
+			var f = this._functions[i];
+			try {
+				this._plotFunction(f.fn, f.color);
+			}
+			catch (e) {
+				errors.push("Error in function " + i + ": " + e.message);
+			}
+		}
+
+		if (this._redrawCallback) {
+			this._redrawCallback(ctx);
+		}
+
+		status = errors + '\n';
+		return errors;
+	},
+
+	drawGrid: function() {
+		var ctx = this._setupContext();
 		var minX = this.settings.minX;
 		var minY = this.settings.minY;
 		var maxX = this.settings.maxX;
 		var maxY = this.settings.maxY;
-		var xstep = round(this.settings.xGridSize);
-		var ystep = round(this.settings.yGridSize);
+		var xstep = Graph.round(this.settings.xGridSize);
+		var ystep = Graph.round(this.settings.yGridSize);
 
 		try {
 			if (this.settings.showGrid) {
@@ -296,13 +436,13 @@ var Graph = function Graph(_canvas, _width, _height, _offsetX, _offsetY, _settin
 			if (this.settings.showAxes) {
 				ctx.strokeStyle = "black";
 
-				ctx.lineWidth = 2 / scaleY;
+				ctx.lineWidth = 2 / this.scaleY;
 				ctx.beginPath();
 					ctx.moveTo(minX, 0);
 					ctx.lineTo(maxX, 0);
 				ctx.stroke();
 
-				ctx.lineWidth = 2 / scaleX;
+				ctx.lineWidth = 2 / this.scaleX;
 				ctx.beginPath();
 					ctx.moveTo(0, minY);
 					ctx.lineTo(0, maxY);
@@ -312,170 +452,28 @@ var Graph = function Graph(_canvas, _width, _height, _offsetX, _offsetY, _settin
 		finally {
 			ctx.restore();
 		}
-	};
+	},
 
-	this.deletePlot = function(n) {
+	deletePlot: function(n) {
 		if (!isNaN(n)) {
-			removeFunction(n);
+			this._removeFunction(n);
 		}
 		else {
 			status = "Invalid delete";
 		}
-	};
+	},
 	
-	this.plot = function(line) {
+	plot: function(line) {
 		line = line.trim();
 		if (line == "") return "";
 		var status = "";
 
 		try {
-			var f = makeFunction(line);
-			addFunction(f);
+			var f = Graph.makeFunction(line);
+			this._addFunction(f);
 		}
 		catch (e) {
 			status = e.message;
 		}
-	}
-
-	// initialization
-	// TODO: make sure that blockers+targets<=range*domain
-	blockers = getLocations(this.settings.numBlockers);
-	targets = getLocations(this.settings.numTargets);
-};
-
-// static properties
-Graph.parser = new Parser();
-Graph.defaultSettings = {
-	showAxes: true,
-	showGrid: true,
-	xGridSize: 1,
-	yGridSize: 1,
-	minX: -10,
-	maxX: 10,
-	minY: -10,
-	maxY: 10,
-	minT: 0,
-	maxT: 2 * Math.PI,
-	minParam: 0,
-	maxParam: 2 * Math.PI,
-	colors: [ "red", "blue", "green", "orange", "purple", "gray", "pink", "lightblue", "limegreen"],
-};
-
-function getLocations (number) {
-		var list = [];
-		
-		var domain = this.settings.maxX-graph.settings.minX;
-		var range = this.settings.maxY-graph.settings.minY;
-		
-		// TODO: make this recalculate duplicates
-		for (i=0; i<number; i++) 
-			list[i] = [Math.floor(Math.random()*domain)+this.settings.minX, Math.floor(Math.random()*range)+this.settings.minY];	
-		return list;	
-};
-
-
-function PairExpression(expr0, expr1) {
-	this.expr0 = expr0;
-	this.expr1 = expr1;
-	this.param = expr0.param || expr1.param;
-	this.to = expr0.to || expr1.to;
-}
-PairExpression.prototype = {
-	simplify: function(vars) {
-		var spe = PairExpression(this.expr0.simplify(vars), this.expr1.simplify(vars));
-		spe.param = this.expr0.param;
-		spe.to = this.expr0.to;
-	},
-	evaluate: function(vars) {
-		return [this.expr0.evaluate(vars), this.expr1.evaluate(vars)];
-	},
-	toString: function() {
-		return this.expr0 + "; " + this.expr1;
-	},
-	substitute: function(variable, expr) {
-		var spe = PairExpression(this.expr0.substitute(variable, expr), this.expr1.substitute(variable, expr));
-		spe.param = this.expr0.param;
-		spe.to = this.expr0.to;
-	},
-	toJSFunction: function(param, variables) {
-		var xf = this.expr0.toJSFunction(param, variables);
-		var yf = this.expr1.toJSFunction(param, variables);
-		return function(t) {
-			return [xf(t), yf(t)];
-		};
-	},
-}
-
-function round(x) {
-	return Math.round(x * 4096) / 4096;
-}
-
-function makeFunction(expr) {
-	expr = expr.trim();
-
-	try {
-		var param = "x";
-		var range = "y";
-		if (/^f\(x\)\s*=.*$/.test(expr) || /^y\s*=.*$/.test(expr)) {
-			expr = expr.substring(expr.indexOf("=") + 1).trim();
-		}
-		else if (/^f\(y\)\s*=.*$/.test(expr) || /^x\s*=.*$/.test(expr)) {
-			expr = expr.substring(expr.indexOf("=") + 1).trim();
-			param = "y";
-			range = "x";
-		}
-		else if (/^r\s*=.*$/.test(expr)) {
-			expr = expr.substring(expr.indexOf("=") + 1).trim();
-			param = "t";
-			range = "r";
-		}
-		else if (/^x\s*,\s*y\s*=.*$/.test(expr) || /^\[.+,.+\]$/.test(expr)) {
-			expr = expr.substring(expr.indexOf("=") + 1).trim();
-			param = "t";
-			range = "xy";
-		}
-		else if (expr.indexOf(";") != -1) {
-			var exprs = expr.split(";");
-			var expr0 = Graph.parser.parse(exprs[0]).simplify();
-			var expr1 = Graph.parser.parse(exprs[1]).simplify();
-			var f = new PairExpression(expr0, expr1);
-			f.param = "t";
-			f.to = "xy";
-			return f;
-		}
-
-		var f = Graph.parser.parse(expr).simplify();
-		f.param = param;
-		f.to = range;
-		return f;
-	}
-	catch (e) {
-		throw new Error("Syntax error");
-	}
-}
-
-// public methods and properties
-Graph.prototype = {
-	get scaleX() {
-		var userWidth = this.settings.maxX - this.settings.minX;
-		return this.width / userWidth;
-	},
-
-	get scaleY() {
-		var userHeight = this.settings.maxY - this.settings.minY;
-		return this.height / userHeight;
-	},
-
-	getPoint: function(devx, devy) {
-		var settings = this.settings;
-		var scalex = this.scaleX;
-		var scaley = this.scaleY;
-		var offsetX = this.offsetX;
-		var offsetY = this.offsetY;
-
-		var x = (devx /  scalex) - ((              offsetX - settings.minX * scalex) / scalex);
-		var y = (devy / -scaley) + ((this.height + offsetY + settings.minY * scaley) / scaley);
-
-		return { x:x, y:y };
 	}
 };

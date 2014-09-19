@@ -107,11 +107,6 @@ var graph = new Graph(gcanvas);
 var game = new Game(graph);
 game.startGame();
 
-// draw the initial setup
-game.drawTargets();
-game.drawBlockers();
-
-
 // hookup the location sensors
 $gcanvas.mousemove(function(e) {
 	var gtable = $("#gtable").get(0);

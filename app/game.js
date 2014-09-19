@@ -1,17 +1,16 @@
-var Game = function Game(graph) {
-	var _graph = graph;
-	
-	var _defaultSettings = {
-		numBlockers: 3,
-		numTargets: 4
-	};
-	
-	// XXX: Changes to Game._defaultSettings will affect existing Game objects. Is that the Right Thing?
-	this.settings = extend(object(Game._defaultSettings), this.settings || {});
-	
-	this.startGame = function() {
-		graph.loadBlockersTargets(this.settings.numBlockers, this.settings.numTargets);
-	};
-	
+var Game = function Game(graph, settings) {
+	this._graph = graph;
+	this.settings = extend(object(Game.defaultSettings), this.settings || {});
 };
 
+// static
+Game.defaultSettings = {
+	numBlockers: 3,
+	numTargets: 4
+};
+
+Game.prototype = {
+	startGame: function() {
+		this._graph.drawGrid();
+	}
+};
