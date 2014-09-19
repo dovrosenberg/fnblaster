@@ -16,6 +16,8 @@ var Graph = function Graph(canvas, width, height, offsetX, offsetY, settings) {
 	// TODO: make sure that blockers+targets<=range*domain
 	this._blockers = this._getLocations(this.settings.numBlockers);
 	this._targets = this._getLocations(this.settings.numTargets);
+	
+	this._setupContext();
 };
 
 function PairExpression(expr0, expr1) {
@@ -157,23 +159,18 @@ Graph.prototype = {
 	
 	// location is an array of [x,y]
 	_drawCircle: function(location, radius, filled, color) {
-		var ctx = this._canvas.getContext("2d");  // TODO: can I replace this whole setup with getContext???
-		ctx.save();
+		var ctx = this._canvas.getContext("2d");  
 		
-		ctx.scale(this.scaleX, -this.scaleY);
-		ctx.translate(-this.settings.minX,this.settings.minY);
 		ctx.beginPath();
 		ctx.arc(location[0],location[1],radius,0,2*Math.PI, false);
 		
 		if (filled) {
-			ctx.fillStyle = color || '#003300';
+			ctx.fillStyle = color || 'green';
 			ctx.fill();
 		}
 		ctx.lineWidth = 1/this.scaleX;
-		ctx.strokeStyle = color || '#003300';
+		ctx.strokeStyle = color || 'green';
 		ctx.stroke();
-		
-		ctx.restore();
 	},
 
 	_drawBlockersTargets: function() {
@@ -193,13 +190,16 @@ Graph.prototype = {
 	},
 
 	// fast=true just draws it; false=slow animates it
-	_plotFunction: function(f, color, fast, blockX) {
-		var ctx = this._setupContext();
+	_plotFunction: function(i, fast) {
+		var ctx = this._canvas.getContext("2d");
 
 		try {
+			var f = this._functions[i].fn;
+			var color = this._functions[i].color;
+			
 			var minX = this.settings.minX;
 			var minY = this.settings.minY;
-			var maxX = blockX || this.settings.maxX;
+			var maxX = this._blockPoints[i];
 			var maxY = this.settings.maxY;
 
 			var first = true;
@@ -234,7 +234,6 @@ Graph.prototype = {
 					plotPoint(x, y);
 				}
 				ctx.stroke();
-				ctx.restore();
 			}
 			else{
 				var requestAnimationFrame = window.requestAnimationFrame || window.webkitRequestAnimationFrame || window.mozRequestAnimationFrame ||
@@ -269,11 +268,14 @@ Graph.prototype = {
 							first=true;
 							
 							// remove from target list; this will erase it when next plot is drawn
-							_this._targets.splice(targetHit);
+							_this._targets.splice(targetHit,1);
 						}
 						if (_this._collisionDetectBlockers(newX,y)) {
-							// don't plot the point; TODO: need to update this._blockPoints somehow
-							ctx.restore();
+							plotPoint(newX,y);
+							ctx.stroke();
+
+							// stop drawing this line here in the future
+							_this._blockPoints[i] = newX;
 							_this._animatingNow = false;
 						} else {
 							plotPoint(newX,y);
@@ -283,7 +285,6 @@ Graph.prototype = {
 							requestAnimationFrame(animate);
 						}						
 					} else {
-						ctx.restore();
 						_this._animatingNow = false;
 					}
 				};
@@ -364,7 +365,6 @@ Graph.prototype = {
 
 	_setupContext: function() {
 		var ctx = this._canvas.getContext("2d");
-		ctx.save();
 
 		ctx.beginPath();
 			ctx.moveTo(this._offsetX                  , this._offsetY);
@@ -413,9 +413,7 @@ Graph.prototype = {
 		
 	// cleans out the space and draws the grid
 	drawGrid: function() {
-		this._canvas.getContext("2d").clearRect(this._offsetX, this._offsetY, this._width, this._height);
-
-		var ctx = this._setupContext();
+		var ctx = this._canvas.getContext("2d");
 		
 		var minX = this.settings.minX;
 		var minY = this.settings.minY;
@@ -424,56 +422,53 @@ Graph.prototype = {
 		var xstep = Graph.round(this.settings.xGridSize);
 		var ystep = Graph.round(this.settings.yGridSize);
 
-		try {
-			if (this.settings.showGrid) {
-				ctx.strokeStyle = "lightgray";
-				ctx.lineWidth = 1 / this.scaleY;
-				for (var i = 0; i <= maxY; i += ystep) {
-					ctx.beginPath();
-						ctx.moveTo(minX, i);
-						ctx.lineTo(maxX, i);
-					ctx.stroke();
-				}
-				for (var i = -ystep; i >= minY; i -= ystep) {
-					ctx.beginPath();
-						ctx.moveTo(minX, i);
-						ctx.lineTo(maxX, i);
-					ctx.stroke();
-				}
+		ctx.clearRect(minX, minY, (maxX-minX), (maxY-minY));
 
-				ctx.lineWidth = 1 / this.scaleX;
-				for (var i = 0; i <= maxX; i += xstep) {
-					ctx.beginPath();
-						ctx.moveTo(i, minY);
-						ctx.lineTo(i, maxY);
-					ctx.stroke();
-				}
-				for (var i = -xstep; i >= minX; i -= xstep) {
-					ctx.beginPath();
-						ctx.moveTo(i, minY);
-						ctx.lineTo(i, maxY);
-					ctx.stroke();
-				}
+		if (this.settings.showGrid) {
+			ctx.strokeStyle = "lightgray";
+			ctx.lineWidth = 1 / this.scaleY;
+			for (var i = 0; i <= maxY; i += ystep) {
+				ctx.beginPath();
+					ctx.moveTo(minX, i);
+					ctx.lineTo(maxX, i);
+				ctx.stroke();
+			}
+			for (var i = -ystep; i >= minY; i -= ystep) {
+				ctx.beginPath();
+					ctx.moveTo(minX, i);
+					ctx.lineTo(maxX, i);
+				ctx.stroke();
 			}
 
-			if (this.settings.showAxes) {
-				ctx.strokeStyle = "black";
-
-				ctx.lineWidth = 2 / this.scaleY;
+			ctx.lineWidth = 1 / this.scaleX;
+			for (var i = 0; i <= maxX; i += xstep) {
 				ctx.beginPath();
-					ctx.moveTo(minX, 0);
-					ctx.lineTo(maxX, 0);
+					ctx.moveTo(i, minY);
+					ctx.lineTo(i, maxY);
 				ctx.stroke();
-
-				ctx.lineWidth = 2 / this.scaleX;
+			}
+			for (var i = -xstep; i >= minX; i -= xstep) {
 				ctx.beginPath();
-					ctx.moveTo(0, minY);
-					ctx.lineTo(0, maxY);
+					ctx.moveTo(i, minY);
+					ctx.lineTo(i, maxY);
 				ctx.stroke();
 			}
 		}
-		finally {
-			ctx.restore();
+
+		if (this.settings.showAxes) {
+			ctx.strokeStyle = "black";
+
+			ctx.lineWidth = 2 / this.scaleY;
+			ctx.beginPath();
+				ctx.moveTo(minX, 0);
+				ctx.lineTo(maxX, 0);
+			ctx.stroke();
+
+			ctx.lineWidth = 2 / this.scaleX;
+			ctx.beginPath();
+				ctx.moveTo(0, minY);
+				ctx.lineTo(0, maxY);
+			ctx.stroke();
 		}
 		
 		this._drawBlockersTargets();
@@ -494,14 +489,12 @@ Graph.prototype = {
 
 			// we refresh the grid because we need to clear destroyed targets
 			this.drawGrid();
-			this._drawBlockersTargets();
 			
 			// now draw all the plots; only the last one needs to be animated
 			var errors = [];
 			for (var i=0; i<this._functions.length; i++) {			
-				var f = this._functions[i];
 				try {
-					this._plotFunction(f.fn, f.color, (i!=this._functions.length-1), this._blockPoints[i]);
+					this._plotFunction(i, (i!=this._functions.length-1));
 				}
 				catch (e) {
 					errors.push("Error in function " + i + ": " + e.message);
