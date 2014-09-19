@@ -6,6 +6,7 @@ var Graph = function Graph(canvas, width, height, offsetX, offsetY, settings) {
 	this._width = width || (this._canvas.width - this._offsetX);
 	this._height = height || (this._canvas.height - this._offsetY);
 	this._functions = [];
+	this._blockPoints = [];	// the maxX before hitting a blocker
 	this._constants = {};
 	this._animatingNow = false;
 	
@@ -73,6 +74,10 @@ Graph.round = function(x) {
 	return Math.round(x * 4096) / 4096;
 };
 
+// is a particular point inside of a circle as defined
+Graph.collisionDetect = function(x, y, circlex, circley, circleRadius) {
+	return ((circlex-x)*(circlex-x)+(circley-y)*(circley-y)<=circleRadius*circleRadius);
+}
 Graph.makeFunction = function(expr) {
 	expr = expr.trim();
 
@@ -131,8 +136,27 @@ Graph.prototype = {
 		return list;	
 	},
 
+	// returns true if any blocker is hit
+	_collisionDetectBlockers: function(x,y) {
+		for (var i=0; i<this._blockers.length; i++)
+			if (Graph.collisionDetect(x,y,this._blockers[i][0], this._blockers[i][1], 0.5))
+				return true;
+		
+		return false;
+	},
+
+	// returns index of target hit; -1 if none
+	// if targets overlap, this will only return one of them
+	_collisionDetectTargets: function(x,y) {
+		for (var i=0; i<this._targets.length; i++)
+			if (Graph.collisionDetect(x,y,this._targets[i][0], this._targets[i][1], 0.5))
+				return i;
+		
+		return -1;
+	},
+	
 	// location is an array of [x,y]
-	_drawCircle: function(location, radius, filled) {
+	_drawCircle: function(location, radius, filled, color) {
 		var ctx = this._canvas.getContext("2d");  // TODO: can I replace this whole setup with getContext???
 		ctx.save();
 		
@@ -142,11 +166,11 @@ Graph.prototype = {
 		ctx.arc(location[0],location[1],radius,0,2*Math.PI, false);
 		
 		if (filled) {
-			ctx.fillStyle = 'green';
+			ctx.fillStyle = color || '#003300';
 			ctx.fill();
 		}
 		ctx.lineWidth = 1/this.scaleX;
-		ctx.strokeStyle = '#003300';
+		ctx.strokeStyle = color || '#003300';
 		ctx.stroke();
 		
 		ctx.restore();
@@ -165,16 +189,17 @@ Graph.prototype = {
 			fn: f,
 			color: c || colors[this._functions.length % colors.length]
 		});
+		this._blockPoints.push(this.settings.maxX);
 	},
 
 	// fast=true just draws it; false=slow animates it
-	_plotFunction: function(f, color, fast) {
+	_plotFunction: function(f, color, fast, blockX) {
 		var ctx = this._setupContext();
 
 		try {
 			var minX = this.settings.minX;
 			var minY = this.settings.minY;
-			var maxX = this.settings.maxX;
+			var maxX = blockX || this.settings.maxX;
 			var maxY = this.settings.maxY;
 
 			var first = true;
@@ -204,7 +229,7 @@ Graph.prototype = {
 			if (fast) {
 				var xstep = 1 / this.scaleX;
 
-				for (var x = minX; x <= maxX; (x < 0 && x + xstep > 0) ? x = 0 : x += xstep) {
+				for (var x = minX; x <=  maxX; (x < 0 && x + xstep > 0) ? x = 0 : x += xstep) {
 					var y = f(x);
 					plotPoint(x, y);
 				}
@@ -232,11 +257,31 @@ Graph.prototype = {
 					var newX = minX + (linearSpeed * time/1000);
 					if (newX <= maxX) {
 						var y = f(newX);
-						plotPoint(newX,y);
-						ctx.stroke();
 						
-						// request new frame
-						requestAnimationFrame(animate);
+						var targetHit = _this._collisionDetectTargets(newX,y);
+						if (targetHit!=-1) {
+							// redraw the target; for now, just change the color 
+							_this._drawCircle(_this._targets[targetHit], 0.5, true, 'red');
+							
+							// move the cursor back to point so plot can continue
+							ctx.beginPath();
+							ctx.strokeStyle = color || "black";
+							first=true;
+							
+							// remove from target list; this will erase it when next plot is drawn
+							_this._targets.splice(targetHit);
+						}
+						if (_this._collisionDetectBlockers(newX,y)) {
+							// don't plot the point; TODO: need to update this._blockPoints somehow
+							ctx.restore();
+							_this._animatingNow = false;
+						} else {
+							plotPoint(newX,y);
+							ctx.stroke();
+
+							// request new frame
+							requestAnimationFrame(animate);
+						}						
 					} else {
 						ctx.restore();
 						_this._animatingNow = false;
@@ -456,7 +501,7 @@ Graph.prototype = {
 			for (var i=0; i<this._functions.length; i++) {			
 				var f = this._functions[i];
 				try {
-					this._plotFunction(f.fn, f.color, (i!=this._functions.length-1));
+					this._plotFunction(f.fn, f.color, (i!=this._functions.length-1), this._blockPoints[i]);
 				}
 				catch (e) {
 					errors.push("Error in function " + i + ": " + e.message);
