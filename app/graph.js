@@ -1,7 +1,5 @@
 var Graph = function Graph(canvas, width, height, offsetX, offsetY, settings) {
 	// private variables
-	this._blockers = [];
-	this._targets = [];
 	this._canvas = canvas;
 	this._offsetX = offsetX || 0;
 	this._offsetY = offsetY || 0;
@@ -9,15 +7,14 @@ var Graph = function Graph(canvas, width, height, offsetX, offsetY, settings) {
 	this._height = height || (this._canvas.height - this._offsetY);
 	this._functions = [];
 	this._constants = {};
-	this._redrawCallback = null;
+	this._animatingNow = false;
 	
 	// public properties
 	this.settings = extend(object(Graph.defaultSettings), settings || {});
 
-	// initialization
 	// TODO: make sure that blockers+targets<=range*domain
-	_blockers = this._getLocations(this.settings.numBlockers);
-	_targets = this._getLocations(this.settings.numTargets);
+	this._blockers = this._getLocations(this.settings.numBlockers);
+	this._targets = this._getLocations(this.settings.numTargets);
 };
 
 function PairExpression(expr0, expr1) {
@@ -68,6 +65,8 @@ Graph.defaultSettings = {
 	minParam: 0,
 	maxParam: 2 * Math.PI,
 	colors: [ "red", "blue", "green", "orange", "purple", "gray", "pink", "lightblue", "limegreen"],
+	numBlockers: 3,
+	numTargets: 4
 };
 
 Graph.round = function(x) {
@@ -146,19 +145,16 @@ Graph.prototype = {
 			ctx.fillStyle = 'green';
 			ctx.fill();
 		}
-		ctx.lineWidth = 1/scaleX;
+		ctx.lineWidth = 1/this.scaleX;
 		ctx.strokeStyle = '#003300';
 		ctx.stroke();
 		
 		ctx.restore();
 	},
 
-	_drawTargets: function() {
+	_drawBlockersTargets: function() {
 		for (i=0; i<this._targets.length; i++)
 			this._drawCircle(this._targets[i], 0.5, true);
-	},
-
-	_drawBlockers: function() {
 		for (i=0; i<this._blockers.length; i++)
 			this._drawCircle(this._blockers[i], 0.5, false);
 	},
@@ -171,11 +167,8 @@ Graph.prototype = {
 		});
 	},
 
-	_removeFunction: function(index) {
-		this._functions.splice(index, 1);
-	},
-
-	_plotFunction: function(f, color) {
+	// fast=true just draws it; false=slow animates it
+	_plotFunction: function(f, color, fast) {
 		var ctx = this._setupContext();
 
 		try {
@@ -183,13 +176,7 @@ Graph.prototype = {
 			var minY = this.settings.minY;
 			var maxX = this.settings.maxX;
 			var maxY = this.settings.maxY;
-			var xstep = 1 / this.scaleX;
-			var ystep = 1 / this.scaleY;
 
-			var txstep = Graph.round(xstep);
-			var tystep = Graph.round(ystep);
-			if (txstep) xstep = txstep;
-			if (txstep) ystep = tystep;
 			var first = true;
 
 			var param = f.param || "x";
@@ -214,36 +201,51 @@ Graph.prototype = {
 			ctx.beginPath();
 			ctx.strokeStyle = color || "black";
 
-			// old code just looped across the whole range for x; new code has to do it according to time
-			//    in order to ensure the correct speed
-			var requestAnimationFrame = window.requestAnimationFrame || window.webkitRequestAnimationFrame || window.mozRequestAnimationFrame ||
-					window.oRequestAnimationFrame || window.msRequestAnimationFrame;
-			
-			var linearSpeed = (maxX - minX)/5;  // want it to take 5 seconds to draw entire range
-			var startTime = null;
-			
-			// startTime is original time we started to draw (in milliseconds)
-			// linearSpeed is how far x advances (in graph units) per second
-			var animate = function(timestamp) {
-				// get new time
-				if (startTime === null) startTime = timestamp;
-				var time = timestamp - startTime;
+			if (fast) {
+				var xstep = 1 / this.scaleX;
+
+				for (var x = minX; x <= maxX; (x < 0 && x + xstep > 0) ? x = 0 : x += xstep) {
+					var y = f(x);
+					plotPoint(x, y);
+				}
+				ctx.stroke();
+				ctx.restore();
+			}
+			else{
+				var requestAnimationFrame = window.requestAnimationFrame || window.webkitRequestAnimationFrame || window.mozRequestAnimationFrame ||
+						window.oRequestAnimationFrame || window.msRequestAnimationFrame;
 				
-				// get current location
-				var newX = minX + (linearSpeed * time/1000);
-				if (newX <= maxX) {
-					var y = f(newX);
-					plotPoint(newX,y);
-					ctx.stroke();
+				var linearSpeed = (maxX - minX)/5;  // want it to take 5 seconds to draw entire range
+				var startTime = null;
+				var _this = this;
+				
+				// startTime is original time we started to draw (in milliseconds)
+				// linearSpeed is how far x advances (in graph units) per second
+				var animate = function(timestamp) {
+					_this._animatingNow = true;
 					
-					// request new frame
-					requestAnimationFrame(animate);
-				} else
-					ctx.restore();
-			};
+					// get new time
+					if (startTime === null) startTime = timestamp;
+					var time = timestamp - startTime;
+					
+					// get current location
+					var newX = minX + (linearSpeed * time/1000);
+					if (newX <= maxX) {
+						var y = f(newX);
+						plotPoint(newX,y);
+						ctx.stroke();
+						
+						// request new frame
+						requestAnimationFrame(animate);
+					} else {
+						ctx.restore();
+						_this._animatingNow = false;
+					}
+				};
 			
-			first = true;
-			requestAnimationFrame(animate);
+				first = true;
+				requestAnimationFrame(animate);
+			};
 			
 			// could handle other functional forms; for now, don't allow
 			/*
@@ -364,36 +366,12 @@ Graph.prototype = {
 		return { x:x, y:y };
 	},
 		
-	// draws a clean grid (if clean=true) and then plots all the functions on top of it
-	redraw: function(clean) {
-		var ctx = this._canvas.getContext("2d");
-		
-		if (clean) {
-			ctx.clearRect(this._offsetX, this._offsetY, this._width, this._height);
-			this.drawGrid();
-		};
-		
-		var errors = [];
-		for (var i = 0; i < this._functions.length; i++) {
-			var f = this._functions[i];
-			try {
-				this._plotFunction(f.fn, f.color);
-			}
-			catch (e) {
-				errors.push("Error in function " + i + ": " + e.message);
-			}
-		}
-
-		if (this._redrawCallback) {
-			this._redrawCallback(ctx);
-		}
-
-		status = errors + '\n';
-		return errors;
-	},
-
+	// cleans out the space and draws the grid
 	drawGrid: function() {
+		this._canvas.getContext("2d").clearRect(this._offsetX, this._offsetY, this._width, this._height);
+
 		var ctx = this._setupContext();
+		
 		var minX = this.settings.minX;
 		var minY = this.settings.minY;
 		var maxX = this.settings.maxX;
@@ -452,28 +430,42 @@ Graph.prototype = {
 		finally {
 			ctx.restore();
 		}
+		
+		this._drawBlockersTargets();
 	},
 
-	deletePlot: function(n) {
-		if (!isNaN(n)) {
-			this._removeFunction(n);
-		}
-		else {
-			status = "Invalid delete";
-		}
-	},
-	
 	plot: function(line) {
 		line = line.trim();
 		if (line == "") return "";
 		var status = "";
 
+		// can't request new plots while animating
+		if (this._animatingNow)
+			return;
+			
 		try {
 			var f = Graph.makeFunction(line);
 			this._addFunction(f);
+
+			// we refresh the grid because we need to clear destroyed targets
+			this.drawGrid();
+			this._drawBlockersTargets();
+			
+			// now draw all the plots; only the last one needs to be animated
+			var errors = [];
+			for (var i=0; i<this._functions.length; i++) {			
+				var f = this._functions[i];
+				try {
+					this._plotFunction(f.fn, f.color, (i!=this._functions.length-1));
+				}
+				catch (e) {
+					errors.push("Error in function " + i + ": " + e.message);
+				}
+			}
 		}
 		catch (e) {
 			status = e.message;
 		}
+		return errors;
 	}
 };

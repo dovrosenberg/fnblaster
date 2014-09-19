@@ -130,20 +130,8 @@ $("#gform").submit(function(event) {
 	if (line) {
 		$("#gmessages").val("");
 
-		try {
-			// delete any prior plot
-			try {
-				graph.deletePlot(0);
-			}
-			catch (e) {};
-			
+		try {			
 			var status = graph.plot(line);
-			if (status != "") {
-				error = true;
-				print(status);
-			}
-
-			status = redraw(false);
 			if (status != "") {
 				error = true;
 				print(status);
@@ -168,9 +156,6 @@ $("#gform").submit(function(event) {
 });
 
 $("#gmessages").val("");
-
-// trigger the first draw
-redraw(true);
 
 });
 
