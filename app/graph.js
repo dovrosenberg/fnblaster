@@ -406,7 +406,7 @@ Graph.prototype = {
 		var offsetY = this._offsetY;
 
 		var x = (devx /  scalex) - ((              offsetX - settings.minX * scalex) / scalex);
-		var y = (devy / -scaley) + ((this.height + offsetY + settings.minY * scaley) / scaley);
+		var y = (devy / -scaley) + ((this._height + offsetY + settings.minY * scaley) / scaley);
 
 		return { x:x, y:y };
 	},

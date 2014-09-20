@@ -49,14 +49,6 @@ function clearContext(c) {
 	c.canvas.width = c.canvas.width;
 };
 
-function redraw(clean) {
-	clearContext(gcanvas.getContext("2d"));
-	var status = graph.redraw(clean);
-	
-	position.update();
-	return status;
-}
-
 function round(n, scale) {
 	if (!scale) scale = 1/(n-1);
 	scale = 1 / scale;
@@ -126,6 +118,7 @@ function print() {
 $("#gform").submit(function(event) {
 	var line = $("#gcommand").val();
 	var error = false;
+	var numTargetsHit = {};
 
 	if (line) {
 		$("#gmessages").val("");
