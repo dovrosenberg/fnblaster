@@ -88,16 +88,20 @@ function onoff(s) {
 	return s == "on" || s == "1" || s == "true";
 }
 
+var score = 0;
+
+function addToScore(numhits) {
+	score += (Math.pow(2,numhits)-1)*100;
+	$("#score").text("Score: " + score);
+}
+
 var $gcanvas = $("#gcanvas");
 var gcanvas = $gcanvas.get(0);
 var position = new Overlay(gcanvas, 0, 0, 300, 20);
 
 // create the graph
 var graph = new Graph(gcanvas);
-
-// create the game object
-var game = new Game(graph);
-game.startGame();
+graph.drawGrid();
 
 // hookup the location sensors
 $gcanvas.mousemove(function(e) {
@@ -124,7 +128,7 @@ $("#gform").submit(function(event) {
 		$("#gmessages").val("");
 
 		try {			
-			var status = graph.plot(line);
+			var status = graph.plot(line,addToScore);
 			if (status != "") {
 				error = true;
 				print(status);

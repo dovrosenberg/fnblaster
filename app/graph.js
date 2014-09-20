@@ -67,7 +67,7 @@ Graph.defaultSettings = {
 	maxT: 2 * Math.PI,
 	minParam: 0,
 	maxParam: 2 * Math.PI,
-	colors: [ "red", "blue", "green", "orange", "purple", "gray", "pink", "lightblue", "limegreen"],
+	colors: [ "red", "blue", "orange", "purple", "gray", "pink", "lightblue", "limegreen"],
 	numBlockers: 3,
 	numTargets: 4
 };
@@ -190,12 +190,13 @@ Graph.prototype = {
 	},
 
 	// fast=true just draws it; false=slow animates it
-	_plotFunction: function(i, fast) {
+	_plotFunction: function(i, fast, scoreUpdateCallback) {
 		var ctx = this._canvas.getContext("2d");
 
 		try {
 			var f = this._functions[i].fn;
 			var color = this._functions[i].color;
+			var numTargetsHit = 0;
 			
 			var minX = this.settings.minX;
 			var minY = this.settings.minY;
@@ -259,8 +260,10 @@ Graph.prototype = {
 						
 						var targetHit = _this._collisionDetectTargets(newX,y);
 						if (targetHit!=-1) {
+							numTargetsHit++;
+							
 							// redraw the target; for now, just change the color 
-							_this._drawCircle(_this._targets[targetHit], 0.5, true, 'red');
+							_this._drawCircle(_this._targets[targetHit], 0.5, true, _this._functions[i].color);
 							
 							// move the cursor back to point so plot can continue
 							ctx.beginPath();
@@ -287,6 +290,9 @@ Graph.prototype = {
 					} else {
 						_this._animatingNow = false;
 					}
+					
+					if (!_this._animatingNow)
+						scoreUpdateCallback(numTargetsHit);
 				};
 			
 				first = true;
@@ -474,7 +480,7 @@ Graph.prototype = {
 		this._drawBlockersTargets();
 	},
 
-	plot: function(line) {
+	plot: function(line, scoreUpdateCallback) {
 		line = line.trim();
 		if (line == "") return "";
 		var status = "";
@@ -494,7 +500,7 @@ Graph.prototype = {
 			var errors = [];
 			for (var i=0; i<this._functions.length; i++) {			
 				try {
-					this._plotFunction(i, (i!=this._functions.length-1));
+					this._plotFunction(i, (i!=this._functions.length-1), scoreUpdateCallback);
 				}
 				catch (e) {
 					errors.push("Error in function " + i + ": " + e.message);
