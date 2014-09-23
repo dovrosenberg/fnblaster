@@ -69,7 +69,8 @@ Graph.defaultSettings = {
 	maxParam: 2 * Math.PI,
 	colors: [ "red", "blue", "orange", "purple", "gray", "pink", "lightblue", "limegreen"],
 	numBlockers: 3,
-	numTargets: 4
+	numTargets: 4,
+	radius: 0.5
 };
 
 Graph.round = function(x) {
@@ -140,8 +141,10 @@ Graph.prototype = {
 
 	// returns true if any blocker is hit
 	_collisionDetectBlockers: function(x,y) {
+		var radius = this.settings.radius;
+		
 		for (var i=0; i<this._blockers.length; i++)
-			if (Graph.collisionDetect(x,y,this._blockers[i][0], this._blockers[i][1], 0.5))
+			if (Graph.collisionDetect(x,y,this._blockers[i][0], this._blockers[i][1], radius))
 				return true;
 		
 		return false;
@@ -150,8 +153,10 @@ Graph.prototype = {
 	// returns index of target hit; -1 if none
 	// if targets overlap, this will only return one of them
 	_collisionDetectTargets: function(x,y) {
+		var radius = this.settings.radius;
+		
 		for (var i=0; i<this._targets.length; i++)
-			if (Graph.collisionDetect(x,y,this._targets[i][0], this._targets[i][1], 0.5))
+			if (Graph.collisionDetect(x,y,this._targets[i][0], this._targets[i][1], radius))
 				return i;
 		
 		return -1;
@@ -174,10 +179,12 @@ Graph.prototype = {
 	},
 
 	_drawBlockersTargets: function() {
+		var radius = this.settings.radius;
+		
 		for (i=0; i<this._targets.length; i++)
-			this._drawCircle(this._targets[i], 0.5, true);
+			this._drawCircle(this._targets[i], radius, true);
 		for (i=0; i<this._blockers.length; i++)
-			this._drawCircle(this._blockers[i], 0.5, false);
+			this._drawCircle(this._blockers[i], radius, false);
 	},
 
 	_addFunction: function(f, c) {
@@ -186,7 +193,7 @@ Graph.prototype = {
 			fn: f,
 			color: c || colors[this._functions.length % colors.length]
 		});
-		this._blockPoints.push(this.settings.maxX);
+		this._blockPoints.push(this.settings.maxX + this.settings.radius);
 	},
 
 	// fast=true just draws it; false=slow animates it
@@ -198,7 +205,7 @@ Graph.prototype = {
 			var color = this._functions[i].color;
 			var numTargetsHit = 0;
 			
-			var minX = this.settings.minX;
+			var minX = this.settings.minX-this.settings.radius;
 			var minY = this.settings.minY;
 			var maxX = this._blockPoints[i];
 			var maxY = this.settings.maxY;
@@ -263,7 +270,7 @@ Graph.prototype = {
 							numTargetsHit++;
 							
 							// redraw the target; for now, just change the color 
-							_this._drawCircle(_this._targets[targetHit], 0.5, true, _this._functions[i].color);
+							_this._drawCircle(_this._targets[targetHit], this.settings.radius, true, _this._functions[i].color);
 							
 							// move the cursor back to point so plot can continue
 							ctx.beginPath();
