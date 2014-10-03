@@ -1,4 +1,4 @@
-var Graph = function Graph(canvas, width, height, offsetX, offsetY, settings) {
+var Graph = function Graph(canvas, settings, width, height, offsetX, offsetY) {
 	// private variables
 	this._canvas = canvas;
 	this._offsetX = offsetX || 0;
@@ -71,6 +71,22 @@ Graph.defaultSettings = {
 	numBlockers: 3,
 	numTargets: 4,
 	radius: 0.5
+};
+
+
+Graph.hardSettings = {
+	numTargets: 10,
+	numBlockers: 8
+};
+
+Graph.mediumSettings = {
+	numTargets: 10,
+	numBlockers: 4
+};
+
+Graph.easySettings = {
+	numTargets: 10,
+	numBlockers: 0
 };
 
 Graph.round = function(x) {

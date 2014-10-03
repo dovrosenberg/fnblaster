@@ -100,7 +100,18 @@ var gcanvas = $gcanvas.get(0);
 var position = new Overlay(gcanvas, 0, 0, 300, 20);
 
 // create the graph
-var graph = new Graph(gcanvas);
+var difficulty = location.search.replace(/^.*?\=/, '');
+
+var diffSettings;
+
+if (difficulty=="easy")
+	diffSettings = Graph.easySettings;
+else if (difficulty=="medium")
+	diffSettings = Graph.mediumSettings;
+else	
+	diffSettings = Graph.hardSettings;
+	
+var graph = new Graph(gcanvas, diffSettings);
 graph.drawGrid();
 
 // hookup the location sensors
