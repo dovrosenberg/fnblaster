@@ -14,8 +14,10 @@ var Graph = function Graph(canvas, settings, width, height, offsetX, offsetY) {
 	this.settings = extend(object(Graph.defaultSettings), settings || {});
 
 	// TODO: make sure that blockers+targets<=range*domain
-	this._blockers = this._getLocations(this.settings.numBlockers);
-	this._targets = this._getLocations(this.settings.numTargets);
+	this._blockers = [];
+	this._targets = [];
+	
+	this._getLocations(this.settings.numBlockers, this.settings.numTargets);
 	
 	this._setupContext();
 };
@@ -75,17 +77,17 @@ Graph.defaultSettings = {
 
 
 Graph.hardSettings = {
-	numTargets: 10,
+	numTargets: 8,
 	numBlockers: 8
 };
 
 Graph.mediumSettings = {
-	numTargets: 10,
+	numTargets: 8,
 	numBlockers: 4
 };
 
 Graph.easySettings = {
-	numTargets: 10,
+	numTargets: 8,
 	numBlockers: 0
 };
 
@@ -143,16 +145,30 @@ Graph.makeFunction = function(expr) {
 
 Graph.prototype = {
 	// private methods
-	_getLocations: function(number) {
-		var list = [];
+	_getLocations: function(numBlockers, numTargets) {
+		var used = [];
 		
-		var domain = this.settings.maxX-this.settings.minX;
-		var range = this.settings.maxY-this.settings.minY;
+		var domain = this.settings.maxX-this.settings.minX-2;
+		var range = this.settings.maxY-this.settings.minY-2;
 		
-		// TODO: make this recalculate duplicates
-		for (i=0; i<number; i++) 
-			list[i] = [Math.floor(Math.random()*domain)+this.settings.minX, Math.floor(Math.random()*range)+this.settings.minY];	
-		return list;	
+		for (i=this.settings.minX; i<=this.settings.maxX; i++) {
+			used[i] = [];
+			for (j=this.settings.minY; j<=this.settings.maxY; j++)
+				used[i][j]=false;
+		};
+		
+		for (i=0; i<numBlockers; i++) {
+			do {
+				this._blockers[i] = [Math.floor(Math.random()*domain)+this.settings.minX+1, Math.floor(Math.random()*range)+this.settings.minY+1];	
+			} while (used[this._blockers[i][0]][this._blockers[i][1]]);
+			used[this._blockers[i][0]][this._blockers[i][1]] = true;
+		}
+		for (i=0; i<numTargets; i++) {
+			do {
+				this._targets[i] = [Math.floor(Math.random()*domain)+this.settings.minX+1, Math.floor(Math.random()*range)+this.settings.minY+1];	
+			} while (used[this._targets[i][0]][this._targets[i][1]]);
+			used[this._targets[i][0]][this._targets[i][1]] = true;
+		}
 	},
 
 	// returns true if any blocker is hit
