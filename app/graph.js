@@ -1,4 +1,4 @@
-var Graph = function Graph(canvas, settings, width, height, offsetX, offsetY) {
+var Graph = function Graph(canvas, settings, gameOverCallback, width, height, offsetX, offsetY) {
 	// private variables
 	this._canvas = canvas;
 	this._offsetX = offsetX || 0;
@@ -9,6 +9,8 @@ var Graph = function Graph(canvas, settings, width, height, offsetX, offsetY) {
 	this._blockPoints = [];	// the maxX before hitting a blocker
 	this._constants = {};
 	this._animatingNow = false;
+	this._miniGame = new MiniGame();
+	this._gameOverCallback = gameOverCallback;		// note: this callback takes a minigame as an argument
 	
 	// public properties
 	this.settings = extend(object(Graph.defaultSettings), settings || {});
@@ -18,6 +20,9 @@ var Graph = function Graph(canvas, settings, width, height, offsetX, offsetY) {
 	this._targets = [];
 	
 	this._getLocations(this.settings.numBlockers, this.settings.numTargets);
+	
+	this._miniGame.blockers = this._blockers.slice(0);
+	this._miniGame.targets = this._targets.slice(0);
 	
 	this._setupContext();
 };
@@ -302,7 +307,7 @@ Graph.prototype = {
 							numTargetsHit++;
 							
 							// redraw the target; for now, just change the color 
-							_this._drawCircle(_this._targets[targetHit], this.settings.radius, true, _this._functions[i].color);
+							_this._drawCircle(_this._targets[targetHit], _this.settings.radius, true, _this._functions[i].color);
 							
 							// move the cursor back to point so plot can continue
 							ctx.beginPath();
@@ -311,6 +316,9 @@ Graph.prototype = {
 							
 							// remove from target list; this will erase it when next plot is drawn
 							_this._targets.splice(targetHit,1);
+							
+							if (_this._targets.length==0)
+								_this._gameOverCallback(_this._miniGame);
 						}
 						if (_this._collisionDetectBlockers(newX,y)) {
 							plotPoint(newX,y);
@@ -529,6 +537,9 @@ Graph.prototype = {
 			return;
 			
 		try {
+			// add to the game tracker
+			this._miniGame.moves.push(line);
+			
 			var f = Graph.makeFunction(line);
 			this._addFunction(f);
 

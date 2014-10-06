@@ -90,7 +90,7 @@ function onoff(s) {
 
 var score = 0;
 
-function addToScore(numhits) {
+function addToScore(numhits, fn) {
 	score += (Math.pow(2,numhits)-1)*100;
 	$("#score").text("Score: " + score);
 }
@@ -99,19 +99,33 @@ var $gcanvas = $("#gcanvas");
 var gcanvas = $gcanvas.get(0);
 var position = new Overlay(gcanvas, 0, 0, 300, 20);
 
-// create the graph
+// create the graph and hiscores objects
 var difficulty = location.search.replace(/^.*?\=/, '');
 
 var diffSettings;
 
-if (difficulty=="easy")
+if (difficulty=="E")
 	diffSettings = Graph.easySettings;
-else if (difficulty=="medium")
+else if (difficulty=="M")
 	diffSettings = Graph.mediumSettings;
 else	
 	diffSettings = Graph.hardSettings;
 	
-var graph = new Graph(gcanvas, diffSettings);
+var hiScores = new HiScores(difficulty);
+
+	// create the graph and setup the gameOverCallBack
+var graph = new Graph(gcanvas, diffSettings, 
+	function(miniGame) {
+		// see if we have a high score
+		if (hiScores.getScoreNum(score)!=-1) {
+			//  if so, get their name and add it
+			var name = window.prompt("Congratulations!  You have a high score!  Please enter your name.","");
+			
+			//  then update the cookies
+			hiScores.insertScore(score,name,miniGame);
+			hiScores.saveToCookie();
+		}
+	});
 graph.drawGrid();
 
 // hookup the location sensors

@@ -6,35 +6,37 @@ var MiniGame = function MiniGame() {
 }
 
 // data should be JSON for the object or null
-var HiScores = function HiScores() {
+var HiScores = function HiScores(difficulty) {
 	// private variables
-	this._difficulty;   // the difficulty level of this set of scores  (E,M, or H)
+	this._difficulty=difficulty;   // the difficulty level of this set of scores  (E,M, or H)
 	
 	// public properties
 	this.numScores = 0;		// in case there are less than the max # tracked
 	this.scores = [];	// the actual scores (index 0 is the top one)
 	this.names = [];
 	this.miniGames = [];
+	
+	this.loadFromCookie();
 };
 
 // static properties
-var HiScores.maxScores = 10;		// the number of scores to track
+HiScores.maxScores = 10;		// the number of scores to track
 
 HiScores.prototype = {
 	// private methods
 
 	// public methods
 	saveToCookie: function() {
-		saveToCookie(_difficulty,JSON.stringify(this));
+		setCookie(this._difficulty,JSON.stringify(this));
 	},
 	
-	loadFromCookie: function(difficulty) {
-		this._difficulty = difficulty;
+	loadFromCookie: function() {
+		var data = getCookie(this._difficulty);
 		
-		var data = getCookie(difficulty);
-		
-		// populate the fields with data;
-		extend(this,JSON.parse(data));
+		// populate the fields with data, if any;
+		if (data) {
+			extend(this,JSON.parse(data));
+		};
 	},
 	
 	// returns the number of this score (i.e. 0 if it's the new top score)
@@ -57,14 +59,14 @@ HiScores.prototype = {
 	
 	insertScore: function(score, name, miniGame) {
 		// find the correct spot
-		var insertSpot = getScoreNum(score);
+		var insertSpot = this.getScoreNum(score);
 		
 		if (insertSpot!=-1) {
 			this.scores.splice(insertSpot,0,score);
 			this.names.splice(insertSpot,0,name);
 			this.miniGames.splice(insertSpot,0,miniGame);
 		
-			numScores++;
+			this.numScores++;
 		}
 	}
 };
